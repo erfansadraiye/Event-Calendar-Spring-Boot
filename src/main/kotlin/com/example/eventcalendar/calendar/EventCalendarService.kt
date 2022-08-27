@@ -2,9 +2,9 @@ package com.example.eventcalendar.calendar
 
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -12,188 +12,153 @@ import java.time.format.DateTimeFormatter
 @Service
 class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEventCalendarService {
 
-    @Autowired
     private val eventCalendarRepository: EventCalendarRepository = calendarRepository
 
-    override fun getAllTasks(): ResponseEntity<*> {
-        return ResponseEntity(eventCalendarRepository.findAll(), HttpStatus.OK)
+    override fun getAllTasks(): List<Task> {
+        return eventCalendarRepository.findAll()
     }
 
-    override fun getTaskById(id: Long): ResponseEntity<*> {
+    override fun getTaskById(id: Long): Task {
         val taskOptional = eventCalendarRepository.findById(id)
         if (!taskOptional.isPresent) {
-            return ResponseEntity(ResponseError(HttpStatus.NOT_FOUND, "no task with id $id "), HttpStatus.NOT_FOUND)
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "no task with id $id ")
         }
-        return ResponseEntity(taskOptional.get(), HttpStatus.OK)
+        return taskOptional.get()
     }
 
-    override fun getTaskByTitle(title: String): ResponseEntity<*> {
+    override fun getTaskByTitle(title: String): Task {
         val taskOptional = eventCalendarRepository.findTaskByTitleEquals(title)
         if (!taskOptional.isPresent) {
-            return ResponseEntity(
-                ResponseError(HttpStatus.NOT_FOUND, "no task with title $title "), HttpStatus.NOT_FOUND
-            )
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "no task with title $title")
         }
-        return ResponseEntity(taskOptional.get(), HttpStatus.OK)
+        return taskOptional.get()
     }
 
-    override fun getTasksBySearchTitle(title: String): ResponseEntity<*> {
-        return ResponseEntity(eventCalendarRepository.findTasksByTitleContainsIgnoreCase(title).get(), HttpStatus.OK)
+    override fun getTasksBySearchTitle(title: String): List<Task> {
+        return eventCalendarRepository.findTasksByTitleContainsIgnoreCase(title).get()
     }
 
-    override fun getTasksByState(state: String): ResponseEntity<*> {
-        return try {
+    override fun getTasksByState(state: String): List<Task> {
+        try {
             val taskState = TaskState.valueOf(state)
-            val events = eventCalendarRepository.findTaskByState(taskState).get()
-            ResponseEntity(events, HttpStatus.OK)
+            return eventCalendarRepository.findTaskByState(taskState).get()
         } catch (e: Exception) {
-            return ResponseEntity(
-                ResponseError(HttpStatus.NOT_ACCEPTABLE, e.message), HttpStatus.NOT_ACCEPTABLE
-            )
+            throw ResponseStatusException(HttpStatus.NOT_ACCEPTABLE, "invalid state!")
         }
     }
 
-    override fun getTasksUntilDeadline(deadline: String): ResponseEntity<*> {
-        return try {
+    override fun getTasksUntilDeadline(deadline: String): List<Task> {
+        try {
             val deadlineLocalDate = if (deadline == "today") LocalDate.now()
             else LocalDate.parse(deadline, DateTimeFormatter.ISO_DATE)
-            val tasks = eventCalendarRepository.findTasksByDeadlineLessThanEqual(deadlineLocalDate!!).get()
-            ResponseEntity(tasks, HttpStatus.OK)
+            return eventCalendarRepository.findTasksByDeadlineLessThanEqual(deadlineLocalDate!!).get()
         } catch (e: Exception) {
-            return ResponseEntity(
-                ResponseError(HttpStatus.NOT_ACCEPTABLE, e.message), HttpStatus.NOT_ACCEPTABLE
-            )
+            throw ResponseStatusException(HttpStatus.NOT_ACCEPTABLE, "invalid date format!")
         }
     }
 
-    override fun addTask(task: Task): ResponseEntity<*> {
-        if (task.id != null) if (eventCalendarRepository.existsById(task.id!!)) return ResponseEntity(
-            ResponseError(
-                HttpStatus.CONFLICT, "id is duplicate!"
-            ), HttpStatus.CONFLICT
+    override fun addTask(task: Task): Long? {
+        if (task.id != null) if (eventCalendarRepository.existsById(task.id!!)) throw ResponseStatusException(
+            HttpStatus.CONFLICT, "id is duplicate!"
         )
-        if (eventCalendarRepository.existsByTitle(task.title!!)) return ResponseEntity(
-            ResponseError(
-                HttpStatus.CONFLICT, "title is duplicate!"
-            ), HttpStatus.CONFLICT
+        if (eventCalendarRepository.existsByTitle(task.title!!)) throw ResponseStatusException(
+            HttpStatus.CONFLICT, "title is duplicate!"
         )
-        if (task.deadline!!.isBefore(LocalDate.now())) return ResponseEntity(
-            ResponseError(HttpStatus.NOT_ACCEPTABLE, "deadline is invalid!"), HttpStatus.NOT_ACCEPTABLE
+        if (task.deadline!!.isBefore(LocalDate.now())) throw ResponseStatusException(
+            HttpStatus.NOT_ACCEPTABLE, "deadline is invalid!"
         )
         eventCalendarRepository.save(task)
-        return ResponseEntity(task, HttpStatus.CREATED)
-
+        return task.id
     }
 
     @Transactional
-    override fun updateStateById(id: Long, state: String): ResponseEntity<*> {
+    override fun updateStateById(id: Long, state: String): Task {
         val taskOptional = eventCalendarRepository.findById(id)
         if (!taskOptional.isPresent) {
-            return ResponseEntity(ResponseError(HttpStatus.NOT_FOUND, "no task with id $id "), HttpStatus.NOT_FOUND)
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "no task with id $id ")
         }
         val task = taskOptional.get()
-        val taskState: TaskState?
-        try {
-            taskState = TaskState.valueOf(state)
+        val taskState = try {
+            TaskState.valueOf(state)
         } catch (e: Exception) {
-            return ResponseEntity(
-                ResponseError(HttpStatus.NOT_ACCEPTABLE, e.message), HttpStatus.NOT_ACCEPTABLE
-            )
+            throw ResponseStatusException(HttpStatus.NOT_ACCEPTABLE, "invalid state!")
         }
-        if (task.state == taskState) return ResponseEntity(
-            ResponseError(HttpStatus.NOT_ACCEPTABLE, "new status and current status are same!"),
-            HttpStatus.NOT_ACCEPTABLE
+        if (task.state == taskState) throw ResponseStatusException(
+            HttpStatus.NOT_ACCEPTABLE, "new state and current state are same!"
         )
         task.state = taskState
-        return ResponseEntity(task, HttpStatus.OK)
+        return task
     }
 
     @Transactional
-    override fun updateStateByTitle(title: String, state: String): ResponseEntity<*> {
+    override fun updateStateByTitle(title: String, state: String): Task {
         val taskOptional = eventCalendarRepository.findTaskByTitleEquals(title)
-        if (!taskOptional.isPresent) return ResponseEntity(
-            ResponseError(HttpStatus.NOT_FOUND, "event with title=$title doesn't exist!"), HttpStatus.NOT_FOUND
+        if (!taskOptional.isPresent) throw ResponseStatusException(
+            HttpStatus.NOT_FOUND, "task with title=$title doesn't exist!"
         )
         val task = taskOptional.get()
-        val taskState: TaskState?
-        try {
-            taskState = TaskState.valueOf(state)
+        val taskState = try {
+            TaskState.valueOf(state)
         } catch (e: Exception) {
-            return ResponseEntity(
-                ResponseError(HttpStatus.NOT_ACCEPTABLE, e.message), HttpStatus.NOT_ACCEPTABLE
-            )
+            throw ResponseStatusException(HttpStatus.NOT_ACCEPTABLE, "invalid state!")
         }
-        if (task.state == taskState) return ResponseEntity(
-            ResponseError(HttpStatus.NOT_ACCEPTABLE, "new status and current status are same!"),
-            HttpStatus.NOT_ACCEPTABLE
+        if (task.state == taskState) throw ResponseStatusException(
+            HttpStatus.NOT_ACCEPTABLE, "new state and current state are same!"
         )
         task.state = taskState
-        return ResponseEntity(task, HttpStatus.OK)
+        return task
     }
 
     @Transactional
-    override fun updateDeadlineById(id: Long, deadline: String): ResponseEntity<*> {
+    override fun updateDeadlineById(id: Long, deadline: String): Task {
         val taskOptional = eventCalendarRepository.findById(id)
         if (!taskOptional.isPresent) {
-            return ResponseEntity(ResponseError(HttpStatus.NOT_FOUND, "no task with id $id "), HttpStatus.NOT_FOUND)
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "no task with id $id ")
         }
         val task = taskOptional.get()
-        val deadlineLocalDate: LocalDate?
-        try {
-            deadlineLocalDate = LocalDate.parse(deadline, DateTimeFormatter.ISO_DATE)
+        val deadlineLocalDate = try {
+            LocalDate.parse(deadline, DateTimeFormatter.ISO_DATE)
         } catch (e: Exception) {
-            return ResponseEntity(
-                ResponseError(HttpStatus.NOT_ACCEPTABLE, e.message), HttpStatus.NOT_ACCEPTABLE
-            )
+            throw ResponseStatusException(HttpStatus.NOT_ACCEPTABLE, "invalid state!")
         }
-        if (task.deadline == deadlineLocalDate) return ResponseEntity(
-            ResponseError(
-                HttpStatus.NOT_ACCEPTABLE, "new deadline and current deadline are same!"
-            ), HttpStatus.NOT_ACCEPTABLE
+        if (task.deadline == deadlineLocalDate) throw ResponseStatusException(
+            HttpStatus.NOT_ACCEPTABLE, "new deadline and current deadline are same!"
         )
         task.deadline = deadlineLocalDate
-        return ResponseEntity(task, HttpStatus.OK)
+        return task
     }
 
     @Transactional
-    override fun updateDeadlineByTitle(title: String, deadline: String): ResponseEntity<*> {
+    override fun updateDeadlineByTitle(title: String, deadline: String): Task {
         val taskOptional = eventCalendarRepository.findTaskByTitleEquals(title)
         if (!taskOptional.isPresent) {
-            return ResponseEntity(
-                ResponseError(HttpStatus.NOT_FOUND, "no task with title $title "),
-                HttpStatus.NOT_FOUND
-            )
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "no task with title $title")
         }
         val task = taskOptional.get()
-        val deadlineLocalDate: LocalDate?
-        try {
-            deadlineLocalDate = LocalDate.parse(deadline, DateTimeFormatter.ISO_DATE)
+        val deadlineLocalDate = try {
+            LocalDate.parse(deadline, DateTimeFormatter.ISO_DATE)
         } catch (e: Exception) {
-            return ResponseEntity(
-                ResponseError(HttpStatus.NOT_ACCEPTABLE, e.message), HttpStatus.NOT_ACCEPTABLE
-            )
+            throw ResponseStatusException(HttpStatus.NOT_ACCEPTABLE, "invalid state!")
         }
-        if (task.deadline == deadlineLocalDate) return ResponseEntity(
-            ResponseError(
-                HttpStatus.NOT_ACCEPTABLE, "new deadline and current deadline are same!"
-            ), HttpStatus.NOT_ACCEPTABLE
+        if (task.deadline == deadlineLocalDate) throw ResponseStatusException(
+            HttpStatus.NOT_ACCEPTABLE, "new deadline and current deadline are same!"
         )
         task.deadline = deadlineLocalDate
-        return ResponseEntity(task, HttpStatus.OK)
+        return task
     }
 
-    override fun deleteTask(id: Long): ResponseEntity<*> {
+    override fun deleteTask(id: Long): Boolean {
         val taskOptional = eventCalendarRepository.findById(id)
         if (!taskOptional.isPresent) {
-            return ResponseEntity(ResponseError(HttpStatus.NOT_FOUND, "no task with id $id "), HttpStatus.NOT_FOUND)
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "no task with id $id ")
         }
         eventCalendarRepository.deleteById(id)
-        return ResponseEntity(taskOptional.get(), HttpStatus.OK)
+        return true
     }
 
     @Transactional
-    override fun clearDoneTasks(): ResponseEntity<*> {
+    override fun clearDoneTasks(): Boolean {
         eventCalendarRepository.deleteTaskByStateEquals(TaskState.DONE)
-        return ResponseEntity(ResponseError(HttpStatus.OK, "Done events deleted successfully"), HttpStatus.OK)
+        return true
     }
 }

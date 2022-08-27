@@ -1,10 +1,11 @@
 package com.example.eventcalendar.calendar
 
+import com.example.eventcalendar.user.User
 import java.time.LocalDate
 import javax.persistence.*
 
 @Entity
-@Table
+@Table(name = "tasks")
 class Task(
     id: Long?,
     title: String?,
@@ -12,14 +13,8 @@ class Task(
     deadline: LocalDate?
 ) {
     @Id
-    @SequenceGenerator(
-        name = "task_sequence",
-        sequenceName = "task_sequence",
-        allocationSize = 1
-    )
     @GeneratedValue(
-        strategy = GenerationType.AUTO,
-        generator = "task_sequence"
+        strategy = GenerationType.IDENTITY
     )
     var id: Long? = id
 
@@ -30,7 +25,8 @@ class Task(
 
     @Enumerated(value = EnumType.STRING)
     var state: TaskState? = TaskState.TO_DO
-
+    @ManyToMany(mappedBy = "assignedTasks")
+    var members : Set<User> = setOf()
     constructor(title: String, description: String, deadline: LocalDate) :
             this(null, title, description, deadline) {
 
@@ -42,9 +38,7 @@ class Task(
 
     override fun equals(other: Any?): Boolean {
         if (other is Task) {
-            return id == other.id && description == other.description &&
-                    state == other.state && deadline == other.deadline &&
-                    title == other.title
+            return id == other.id && title == other.title
         }
         return false
     }

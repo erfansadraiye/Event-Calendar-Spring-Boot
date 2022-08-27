@@ -1,5 +1,6 @@
 package com.example.eventcalendar.calendar
 
+import com.example.eventcalendar.CalendarTest
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.json.JSONArray
@@ -25,7 +26,9 @@ import java.time.LocalDate
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(locations = ["classpath:application-test.properties"])
-internal class TaskServiceTest {
+internal class TaskServiceTest(
+
+) : CalendarTest {
 
     lateinit var mockMvc: MockMvc
 
@@ -41,19 +44,17 @@ internal class TaskServiceTest {
     final val TITLE_LOR: String = "LOR"
     final val DESCRIPTION_LOR: String = "watch $TITLE_LOR"
     final val DEADLINE_LOR: String = "2022-12-09"
-    final val JSON_LOR = toJsonTask(TITLE_LOR, DESCRIPTION_LOR, DEADLINE_LOR)
     final val TITLE_GOT: String = "GOT"
     final val DESCRIPTION_GOT: String = "watch $TITLE_GOT"
     final val DEADLINE_GOT: String = "2023-01-13"
-    final val JSON_GOT = toJsonTask(TITLE_GOT, DESCRIPTION_GOT, DEADLINE_GOT)
-
+    final val pathTasks = "http://localhost:8080/api/calendar/tasks/"
     @BeforeEach
-    fun setupMockMvc() {
+    override fun setupMockMvc() {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build()
     }
 
-    @AfterEach
-    fun resetDB() {
+    @BeforeEach
+    override fun resetDB() {
         eventCalendarRepository.deleteAll()
     }
 
@@ -66,7 +67,7 @@ internal class TaskServiceTest {
         eventCalendarRepository.save(got)
         assertTrue(eventCalendarRepository.count() == 2L)
         val actual_tasks = mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks")
+            MockMvcRequestBuilders.get("${pathTasks}list")
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         val actual_list = JSONArray(actual_tasks)
         assertEquals(actual_list.length(), 2)
@@ -81,11 +82,11 @@ internal class TaskServiceTest {
         val lor = Task(TITLE_LOR, DESCRIPTION_LOR, LocalDate.parse(DEADLINE_LOR))
         eventCalendarRepository.save(lor)
         mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/id/${(lor.id!! + 10)}")
+            MockMvcRequestBuilders.get("${pathTasks}id/${(lor.id!! + 10)}")
         ).andExpect(MockMvcResultMatchers.status().isNotFound)
 
         val actual = mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/id/${(lor.id)}")
+            MockMvcRequestBuilders.get("${pathTasks}id/${(lor.id)}")
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         assertEquals(lor, mapper.readValue<Task>(actual))
     }
@@ -95,11 +96,11 @@ internal class TaskServiceTest {
         val lor = Task(TITLE_LOR, DESCRIPTION_LOR, LocalDate.parse(DEADLINE_LOR))
         eventCalendarRepository.save(lor)
         mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/title/random_title")
+            MockMvcRequestBuilders.get("${pathTasks}title/random_title")
         ).andExpect(MockMvcResultMatchers.status().isNotFound)
 
         val actual = mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/title/${(lor.title)}")
+            MockMvcRequestBuilders.get("${pathTasks}title/${(lor.title)}")
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         assertEquals(lor, mapper.readValue<Task>(actual))
     }
@@ -113,7 +114,7 @@ internal class TaskServiceTest {
         val got = Task(TITLE_GOT, DESCRIPTION_GOT, LocalDate.parse(DEADLINE_GOT))
         eventCalendarRepository.save(got)
         val actual = mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/search_title/$TITLE_LOR")
+            MockMvcRequestBuilders.get("${pathTasks}search_title/$TITLE_LOR")
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         val actualList = JSONArray(actual)
         assertEquals(actualList.length(), 2)
@@ -124,7 +125,7 @@ internal class TaskServiceTest {
     @Test
     fun getTasksByState() {
         mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/state/random_state")
+            MockMvcRequestBuilders.get("${pathTasks}state/random_state")
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
 
         val lor1 = Task(TITLE_LOR, DESCRIPTION_LOR, LocalDate.parse(DEADLINE_LOR))
@@ -135,7 +136,7 @@ internal class TaskServiceTest {
         val got = Task(TITLE_GOT, DESCRIPTION_GOT, LocalDate.parse(DEADLINE_GOT))
         eventCalendarRepository.save(got)
         val actual = mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/state/TO_DO")
+            MockMvcRequestBuilders.get("${pathTasks}state/TO_DO")
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         val actualList = JSONArray(actual)
         assertEquals(actualList.length(), 2)
@@ -143,7 +144,7 @@ internal class TaskServiceTest {
         assertEquals(got, mapper.readValue<Task>(actualList.getString(1)))
 
         val actual2 = mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/state/DOING")
+            MockMvcRequestBuilders.get("${pathTasks}state/DOING")
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         val actualListDoing = JSONArray(actual2)
         assertEquals(actualListDoing.length(), 1)
@@ -153,7 +154,7 @@ internal class TaskServiceTest {
     @Test
     fun getTaskUntilDeadline() {
         mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/deadline/2022-13-29")
+            MockMvcRequestBuilders.get("${pathTasks}deadline/2022-13-29")
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
         val lor1 = Task(TITLE_LOR, DESCRIPTION_LOR, LocalDate.parse(DEADLINE_LOR))
         eventCalendarRepository.save(lor1)
@@ -162,7 +163,7 @@ internal class TaskServiceTest {
         val got = Task(TITLE_GOT, DESCRIPTION_GOT, LocalDate.parse(DEADLINE_GOT))
         eventCalendarRepository.save(got)
         val actual = mockMvc.perform(
-            MockMvcRequestBuilders.get("http://localhost:8080/api/calendar/tasks/deadline/2022-12-29")
+            MockMvcRequestBuilders.get("${pathTasks}deadline/2022-12-29")
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         val actualList = JSONArray(actual)
         assertEquals(actualList.length(), 2)
@@ -174,25 +175,24 @@ internal class TaskServiceTest {
     fun addTask() {
         val json_lor: String = toJsonTask(TITLE_LOR, DESCRIPTION_LOR, DEADLINE_LOR)
         val actual = mockMvc.perform(
-            MockMvcRequestBuilders.post("http://localhost:8080/api/calendar/add_task")
+            MockMvcRequestBuilders.post("${pathTasks}add_task")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json_lor)
         ).andExpect(MockMvcResultMatchers.status().isCreated).andReturn().response.contentAsString
-        val Task: Task = mapper.readValue(actual)
         val expected = eventCalendarRepository.findTaskByTitleEquals(TITLE_LOR).get()
-        assertEquals(Task, expected)
+        assertEquals(actual.toLong(), expected.id)
         mockMvc.perform(
-            MockMvcRequestBuilders.post("http://localhost:8080/api/calendar/add_task")
+            MockMvcRequestBuilders.post("${pathTasks}add_task")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(toJsonTask(Task.id!!, TITLE_LOR, DESCRIPTION_LOR, DEADLINE_LOR))
+                .content(toJsonTask(actual.toLong(), TITLE_LOR, DESCRIPTION_LOR, DEADLINE_LOR))
         ).andExpect(MockMvcResultMatchers.status().isConflict)
         mockMvc.perform(
-            MockMvcRequestBuilders.post("http://localhost:8080/api/calendar/add_task")
+            MockMvcRequestBuilders.post("${pathTasks}add_task")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJsonTask(TITLE_LOR, DESCRIPTION_LOR + "1", DEADLINE_LOR))
         ).andExpect(MockMvcResultMatchers.status().isConflict)
         mockMvc.perform(
-            MockMvcRequestBuilders.post("http://localhost:8080/api/calendar/add_task")
+            MockMvcRequestBuilders.post("${pathTasks}add_task")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJsonTask(TITLE_LOR + "2", DESCRIPTION_LOR, "2003-01-12"))
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
@@ -205,25 +205,27 @@ internal class TaskServiceTest {
         eventCalendarRepository.save(lor)
         val newState = TaskState.DOING
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_state/id/${lor.id!! + 100}?state=DONE")
+            MockMvcRequestBuilders.put("${pathTasks}change_state/id/${lor.id!! + 100}?state=DONE")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotFound)
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_state/id/${lor.id}?state=RANDOM")
+            MockMvcRequestBuilders.put("${pathTasks}change_state/id/${lor.id}?state=RANDOM")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
 
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_state/id/${lor.id}?state=${lor.state}")
+            MockMvcRequestBuilders.put("${pathTasks}change_state/id/${lor.id}?state=${lor.state}")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
 
-        mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_state/id/${lor.id}?state=$newState")
+        val actual = mockMvc.perform(
+            MockMvcRequestBuilders.put("${pathTasks}change_state/id/${lor.id}?state=$newState")
                 .contentType(MediaType.APPLICATION_JSON)
-        ).andExpect(MockMvcResultMatchers.status().isOk)
-
-        assertEquals(eventCalendarRepository.findById(lor.id!!).get().state, newState)
+        ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
+        val actualObject = mapper.readValue<Task>(actual)
+        val expected = eventCalendarRepository.findById(lor.id!!).get()
+        assertEquals(actualObject,expected)
+        assertEquals(actualObject.state, newState)
     }
 
     @Test
@@ -232,24 +234,28 @@ internal class TaskServiceTest {
         eventCalendarRepository.save(lor)
         val newState = TaskState.DOING
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_state/title/random_title?state=DONE")
+            MockMvcRequestBuilders.put("${pathTasks}change_state/title/random_title?state=DONE")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotFound)
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_state/title/${lor.title}?state=RANDOM")
+            MockMvcRequestBuilders.put("${pathTasks}change_state/title/${lor.title}?state=RANDOM")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
 
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_state/title/${lor.title}?state=${lor.state}")
+            MockMvcRequestBuilders.put("${pathTasks}change_state/title/${lor.title}?state=${lor.state}")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
 
-        mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_state/title/${lor.title}?state=DOING")
+        val actual = mockMvc.perform(
+            MockMvcRequestBuilders.put("${pathTasks}change_state/title/${lor.title}?state=DOING")
                 .contentType(MediaType.APPLICATION_JSON)
-        ).andExpect(MockMvcResultMatchers.status().isOk)
+        ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         assertEquals(eventCalendarRepository.findById(lor.id!!).get().state, newState)
+        val actualObject = mapper.readValue<Task>(actual)
+        val expected = eventCalendarRepository.findById(lor.id!!).get()
+        assertEquals(actualObject,expected)
+        assertEquals(actualObject.state, newState)
     }
 
     @Test
@@ -258,24 +264,27 @@ internal class TaskServiceTest {
         eventCalendarRepository.save(lor)
         val newDeadline = "2023-12-12"
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_deadline/id/${lor.id!! + 100}?deadline=$newDeadline")
+            MockMvcRequestBuilders.put("${pathTasks}change_deadline/id/${lor.id!! + 100}?deadline=$newDeadline")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotFound)
 
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_deadline/id/${lor.id}?deadline=2022-13-23")
+            MockMvcRequestBuilders.put("${pathTasks}change_deadline/id/${lor.id}?deadline=2022-13-23")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_deadline/id/${lor.id}?deadline=${lor.deadline}")
+            MockMvcRequestBuilders.put("${pathTasks}change_deadline/id/${lor.id}?deadline=${lor.deadline}")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
 
-        mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_deadline/id/${lor.id}?deadline=$newDeadline")
+        val actual = mockMvc.perform(
+            MockMvcRequestBuilders.put("${pathTasks}change_deadline/id/${lor.id}?deadline=$newDeadline")
                 .contentType(MediaType.APPLICATION_JSON)
-        ).andExpect(MockMvcResultMatchers.status().isOk)
-        assertEquals(eventCalendarRepository.findById(lor.id!!).get().deadline, LocalDate.parse(newDeadline))
+        ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
+        val actualObject = mapper.readValue<Task>(actual)
+        val expected = eventCalendarRepository.findById(lor.id!!).get()
+        assertEquals(actualObject,expected)
+        assertEquals(actualObject.deadline, LocalDate.parse(newDeadline))
     }
 
     @Test
@@ -284,23 +293,25 @@ internal class TaskServiceTest {
         eventCalendarRepository.save(lor)
         val newDeadline = "2023-12-12"
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_deadline/title/random_title?deadline=$newDeadline")
+            MockMvcRequestBuilders.put("${pathTasks}change_deadline/title/random_title?deadline=$newDeadline")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotFound)
-
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_deadline/title/${lor.title}?deadline=2022-13-23")
+            MockMvcRequestBuilders.put("${pathTasks}change_deadline/title/${lor.title}?deadline=2022-13-23")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
         mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_deadline/title/${lor.title}?deadline=${lor.deadline}")
+            MockMvcRequestBuilders.put("${pathTasks}change_deadline/title/${lor.title}?deadline=${lor.deadline}")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isNotAcceptable)
-        mockMvc.perform(
-            MockMvcRequestBuilders.put("http://localhost:8080/api/calendar/change_deadline/title/${lor.title}?deadline=$newDeadline")
+        val actual = mockMvc.perform(
+            MockMvcRequestBuilders.put("${pathTasks}change_deadline/title/${lor.title}?deadline=$newDeadline")
                 .contentType(MediaType.APPLICATION_JSON)
-        ).andExpect(MockMvcResultMatchers.status().isOk)
-        assertEquals(eventCalendarRepository.findById(lor.id!!).get().deadline, LocalDate.parse(newDeadline))
+        ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
+        val actualObject = mapper.readValue<Task>(actual)
+        val expected = eventCalendarRepository.findById(lor.id!!).get()
+        assertEquals(actualObject,expected)
+        assertEquals(actualObject.deadline, LocalDate.parse(newDeadline))
     }
 
     @Test
@@ -308,11 +319,11 @@ internal class TaskServiceTest {
         val lor = Task(TITLE_LOR, DESCRIPTION_LOR, LocalDate.parse(DEADLINE_LOR))
         eventCalendarRepository.save(lor)
         mockMvc.perform(
-            MockMvcRequestBuilders.delete("http://localhost:8080/api/calendar/remove_task/${lor.id!! + 1000}")
+            MockMvcRequestBuilders.delete("${pathTasks}remove_task/${lor.id!! + 1000}")
         ).andExpect(MockMvcResultMatchers.status().isNotFound)
 
         mockMvc.perform(
-            MockMvcRequestBuilders.delete("http://localhost:8080/api/calendar/remove_task/${(lor.id)}")
+            MockMvcRequestBuilders.delete("${pathTasks}remove_task/${(lor.id)}")
         ).andExpect(MockMvcResultMatchers.status().isOk)
         assertFalse(eventCalendarRepository.existsById(lor.id!!))
     }
@@ -329,7 +340,7 @@ internal class TaskServiceTest {
         eventCalendarRepository.save(got)
         assertEquals(eventCalendarRepository.count(), 3)
         mockMvc.perform(
-            MockMvcRequestBuilders.delete("http://localhost:8080/api/calendar/clear_done_tasks")
+            MockMvcRequestBuilders.delete("${pathTasks}clear_done_tasks")
         ).andExpect(MockMvcResultMatchers.status().isOk)
         assertTrue(!eventCalendarRepository.findById(lor2.id!!).isPresent)
         assertTrue(!eventCalendarRepository.findById(got.id!!).isPresent)
