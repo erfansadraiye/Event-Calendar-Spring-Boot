@@ -21,7 +21,7 @@ class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEve
 
     override fun getTaskById(id: Long): ResponseEntity<*> {
         val taskOptional = eventCalendarRepository.findById(id)
-        if (taskOptional.isEmpty) {
+        if (!taskOptional.isPresent) {
             return ResponseEntity(ResponseError(HttpStatus.NOT_FOUND, "no task with id $id "), HttpStatus.NOT_FOUND)
         }
         return ResponseEntity(taskOptional.get(), HttpStatus.OK)
@@ -29,7 +29,7 @@ class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEve
 
     override fun getTaskByTitle(title: String): ResponseEntity<*> {
         val taskOptional = eventCalendarRepository.findTaskByTitleEquals(title)
-        if (taskOptional.isEmpty) {
+        if (!taskOptional.isPresent) {
             return ResponseEntity(
                 ResponseError(HttpStatus.NOT_FOUND, "no task with title $title "), HttpStatus.NOT_FOUND
             )
@@ -88,11 +88,11 @@ class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEve
     @Transactional
     override fun updateStateById(id: Long, state: String): ResponseEntity<*> {
         val taskOptional = eventCalendarRepository.findById(id)
-        if (taskOptional.isEmpty) {
+        if (!taskOptional.isPresent) {
             return ResponseEntity(ResponseError(HttpStatus.NOT_FOUND, "no task with id $id "), HttpStatus.NOT_FOUND)
         }
         val task = taskOptional.get()
-        var taskState: TaskState? = null
+        val taskState: TaskState?
         try {
             taskState = TaskState.valueOf(state)
         } catch (e: Exception) {
@@ -111,11 +111,11 @@ class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEve
     @Transactional
     override fun updateStateByTitle(title: String, state: String): ResponseEntity<*> {
         val taskOptional = eventCalendarRepository.findTaskByTitleEquals(title)
-        if (taskOptional.isEmpty) return ResponseEntity(
+        if (!taskOptional.isPresent) return ResponseEntity(
             ResponseError(HttpStatus.NOT_FOUND, "event with title=$title doesn't exist!"), HttpStatus.NOT_FOUND
         )
         val task = taskOptional.get()
-        var taskState: TaskState? = null
+        val taskState: TaskState?
         try {
             taskState = TaskState.valueOf(state)
         } catch (e: Exception) {
@@ -134,11 +134,11 @@ class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEve
     @Transactional
     override fun updateDeadlineById(id: Long, deadline: String): ResponseEntity<*> {
         val taskOptional = eventCalendarRepository.findById(id)
-        if (taskOptional.isEmpty) {
+        if (!taskOptional.isPresent) {
             return ResponseEntity(ResponseError(HttpStatus.NOT_FOUND, "no task with id $id "), HttpStatus.NOT_FOUND)
         }
         val task = taskOptional.get()
-        var deadlineLocalDate: LocalDate? = null
+        val deadlineLocalDate: LocalDate?
         try {
             deadlineLocalDate = LocalDate.parse(deadline, DateTimeFormatter.ISO_DATE)
         } catch (e: Exception) {
@@ -158,14 +158,14 @@ class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEve
     @Transactional
     override fun updateDeadlineByTitle(title: String, deadline: String): ResponseEntity<*> {
         val taskOptional = eventCalendarRepository.findTaskByTitleEquals(title)
-        if (taskOptional.isEmpty) {
+        if (!taskOptional.isPresent) {
             return ResponseEntity(
                 ResponseError(HttpStatus.NOT_FOUND, "no task with title $title "),
                 HttpStatus.NOT_FOUND
             )
         }
         val task = taskOptional.get()
-        var deadlineLocalDate: LocalDate? = null
+        val deadlineLocalDate: LocalDate?
         try {
             deadlineLocalDate = LocalDate.parse(deadline, DateTimeFormatter.ISO_DATE)
         } catch (e: Exception) {
@@ -183,12 +183,12 @@ class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEve
     }
 
     override fun deleteTask(id: Long): ResponseEntity<*> {
-        val task = eventCalendarRepository.findById(id)
-        if (task.isEmpty) {
+        val taskOptional = eventCalendarRepository.findById(id)
+        if (!taskOptional.isPresent) {
             return ResponseEntity(ResponseError(HttpStatus.NOT_FOUND, "no task with id $id "), HttpStatus.NOT_FOUND)
         }
         eventCalendarRepository.deleteById(id)
-        return ResponseEntity(task.get(), HttpStatus.OK)
+        return ResponseEntity(taskOptional.get(), HttpStatus.OK)
     }
 
     @Transactional

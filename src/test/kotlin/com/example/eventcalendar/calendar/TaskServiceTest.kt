@@ -331,8 +331,8 @@ internal class TaskServiceTest {
         mockMvc.perform(
             MockMvcRequestBuilders.delete("http://localhost:8080/api/calendar/clear_done_tasks")
         ).andExpect(MockMvcResultMatchers.status().isOk)
-        assertTrue(eventCalendarRepository.findById(lor2.id!!).isEmpty)
-        assertTrue(eventCalendarRepository.findById(got.id!!).isEmpty)
+        assertTrue(!eventCalendarRepository.findById(lor2.id!!).isPresent)
+        assertTrue(!eventCalendarRepository.findById(got.id!!).isPresent)
     }
 
     final fun toJsonTask(title: String, description: String, deadline: String): String {
