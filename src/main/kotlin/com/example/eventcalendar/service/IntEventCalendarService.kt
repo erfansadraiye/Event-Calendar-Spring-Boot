@@ -1,7 +1,7 @@
-package com.example.eventcalendar.calendar
+package com.example.eventcalendar.service
 
+import com.example.eventcalendar.model.Task
 import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -48,17 +48,26 @@ interface IntEventCalendarService {
         @RequestParam deadline: String
     ): Task
 
-
     @PutMapping("change_deadline/title/{title}", consumes = ["application/json"])
     fun updateDeadlineByTitle(
         @PathVariable("title") title: String,
         @RequestParam deadline: String
     ): Task
 
+
+    @PutMapping("assign/{taskID}", consumes = ["application/json"])
+    fun assignTask(
+        @PathVariable("taskID") taskID: Long,
+        @RequestParam userid: Long?
+    ): Boolean
+
+
     @DeleteMapping("remove_task/{taskId}")
     fun deleteTask(@PathVariable("taskId") id: Long): Boolean
 
-
     @DeleteMapping("clear_done_tasks")
     fun clearDoneTasks(): Boolean
+
+    @GetMapping("get_tasks_by_user/user_id/{id}")
+    fun getTasksByUserId(@PathVariable("id") id: Long?): List<Task>
 }

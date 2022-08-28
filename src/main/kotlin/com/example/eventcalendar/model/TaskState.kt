@@ -1,4 +1,4 @@
-package com.example.eventcalendar.calendar
+package com.example.eventcalendar.model
 
 
 enum class TaskState {

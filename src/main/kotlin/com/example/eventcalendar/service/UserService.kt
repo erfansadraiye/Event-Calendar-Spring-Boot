@@ -1,14 +1,22 @@
-package com.example.eventcalendar.user
+package com.example.eventcalendar.service
 
+import com.example.eventcalendar.model.User
+import com.example.eventcalendar.repository.EventCalendarRepository
+import com.example.eventcalendar.repository.UserRepository
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
 import javax.transaction.Transactional
 
+
 @Service
 class UserService(userRepo: UserRepository) : IntUserService {
 
     private val userRepository: UserRepository = userRepo
+
+    @Autowired
+    lateinit var eventCalendarRepository: EventCalendarRepository
 
     override fun getAllUsers(): List<User> {
         return userRepository.findAll()
@@ -68,10 +76,20 @@ class UserService(userRepo: UserRepository) : IntUserService {
         return user
     }
 
+    override fun getUsersByTaskId(taskId: Long?): List<User> {
+        val taskOptional = eventCalendarRepository.findById(taskId!!)
+        if (!taskOptional.isPresent) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "no task with id $taskId ")
+        }
+        return userRepository.findUsersByAssignedTasksId(taskId).get()
+    }
+
     override fun deleteUserById(id: Long): Boolean {
         val userOptional = userRepository.findById(id)
         if (!userOptional.isPresent) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "no user with id $id ")
+            throw ResponseStatusException(
+                HttpStatus.NOT_FOUND, "no user with id $id "
+            )
         }
         userRepository.deleteById(id)
         return true

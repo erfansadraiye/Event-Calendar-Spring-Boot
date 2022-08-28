@@ -1,10 +1,14 @@
 package com.example.eventcalendar.calendar
 
 import com.example.eventcalendar.CalendarTest
+import com.example.eventcalendar.model.Task
+import com.example.eventcalendar.model.TaskState
+import com.example.eventcalendar.model.User
+import com.example.eventcalendar.repository.EventCalendarRepository
+import com.example.eventcalendar.repository.UserRepository
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.json.JSONArray
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -32,6 +36,10 @@ internal class TaskServiceTest(
 
     lateinit var mockMvc: MockMvc
 
+
+    @Autowired
+    lateinit var userRepository: UserRepository
+
     @Autowired
     lateinit var eventCalendarRepository: EventCalendarRepository
 
@@ -47,6 +55,15 @@ internal class TaskServiceTest(
     final val TITLE_GOT: String = "GOT"
     final val DESCRIPTION_GOT: String = "watch $TITLE_GOT"
     final val DEADLINE_GOT: String = "2023-01-13"
+
+    final val ERFAN_FIRST_NAME: String = "erfan"
+    final val ERFAN_LAST_NAME: String = "sadraiye"
+    final val ERFAN_EMAIL: String = "erfan@gmail.com"
+
+    final val DANIAL_FIRST_NAME: String = "danial"
+    final val DANIAL_LAST_NAME: String = "jahanbani"
+    final val DANIAL_EMAIL: String = "danial@gmail.com"
+
     final val pathTasks = "http://localhost:8080/api/calendar/tasks/"
     @BeforeEach
     override fun setupMockMvc() {
@@ -55,6 +72,7 @@ internal class TaskServiceTest(
 
     @BeforeEach
     override fun resetDB() {
+        userRepository.deleteAll()
         eventCalendarRepository.deleteAll()
     }
 
@@ -345,7 +363,49 @@ internal class TaskServiceTest(
         assertTrue(!eventCalendarRepository.findById(lor2.id!!).isPresent)
         assertTrue(!eventCalendarRepository.findById(got.id!!).isPresent)
     }
-
+    @Test
+    fun assignTask(){
+        val erfan = User(ERFAN_FIRST_NAME, ERFAN_LAST_NAME, ERFAN_EMAIL)
+        val lor = Task(TITLE_LOR, DESCRIPTION_LOR, LocalDate.parse(DEADLINE_LOR))
+        userRepository.save(erfan)
+        eventCalendarRepository.save(lor)
+        mockMvc.perform(
+            MockMvcRequestBuilders.put("${pathTasks}assign/${lor.id!! + 1000}?userid=${erfan.id}").contentType(MediaType.APPLICATION_JSON)
+        ).andExpect(MockMvcResultMatchers.status().isNotFound)
+        mockMvc.perform(
+            MockMvcRequestBuilders.put("${pathTasks}assign/${lor.id}?userid=100").contentType(MediaType.APPLICATION_JSON)
+        ).andExpect(MockMvcResultMatchers.status().isNotFound)
+        val actualTasks = mockMvc.perform(
+            MockMvcRequestBuilders.put("${pathTasks}assign/${lor.id}?userid=${erfan.id}").contentType(MediaType.APPLICATION_JSON)
+        ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
+        assertEquals(actualTasks,"true")
+    }
+    @Test
+    fun getTasksByUser(){
+//        val erfan = User(ERFAN_FIRST_NAME, ERFAN_LAST_NAME, ERFAN_EMAIL)
+//        val danial = User(DANIAL_FIRST_NAME, DANIAL_LAST_NAME, DANIAL_EMAIL)
+//        val lor = Task(TITLE_LOR, DESCRIPTION_LOR, LocalDate.parse(DEADLINE_LOR))
+//        val got = Task(TITLE_GOT, DESCRIPTION_GOT, LocalDate.parse(DEADLINE_GOT))
+//        (erfan.assignedTasks as ArrayList).add(lor)
+//        (danial.assignedTasks as ArrayList).add(lor)
+//        (erfan.assignedTasks as ArrayList).add(got)
+//        userRepository.saveAll(listOf(erfan,danial))
+//        eventCalendarRepository.saveAll(listOf(lor,got))
+//        mockMvc.perform(
+//            MockMvcRequestBuilders.get("${pathTasks}get_tasks_by_user/user_id/${erfan.id!! + 1000}")
+//        ).andExpect(MockMvcResultMatchers.status().isNotFound)
+//
+//        val actualUsers = mockMvc.perform(
+//            MockMvcRequestBuilders.get("${pathTasks}get_tasks_by_user/user_id/${erfan.id}")
+//        ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
+//
+//        val actualList = JSONArray(actualUsers)
+//        assertEquals(actualList.length(), 2)
+//        val actualLORObject = mapper.readValue<Task>(actualList.getString(0))
+//        val actualGOTObject = mapper.readValue<Task>(actualList.getString(1))
+//        assertEquals(lor, actualLORObject)
+//        assertEquals(got, actualGOTObject)
+    }
     final fun toJsonTask(title: String, description: String, deadline: String): String {
         return "{  \"title\": \"$title\",  \"description\": \"$description\",  \"deadline\": \"$deadline\"}"
     }

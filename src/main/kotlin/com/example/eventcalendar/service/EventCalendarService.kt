@@ -1,5 +1,9 @@
-package com.example.eventcalendar.calendar
+package com.example.eventcalendar.service
 
+import com.example.eventcalendar.repository.EventCalendarRepository
+import com.example.eventcalendar.model.TaskState
+import com.example.eventcalendar.model.Task
+import com.example.eventcalendar.repository.UserRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -13,6 +17,9 @@ import java.time.format.DateTimeFormatter
 class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEventCalendarService {
 
     private val eventCalendarRepository: EventCalendarRepository = calendarRepository
+
+    @Autowired
+    lateinit var userRepository: UserRepository
 
     override fun getAllTasks(): List<Task> {
         return eventCalendarRepository.findAll()
@@ -147,6 +154,20 @@ class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEve
         return task
     }
 
+    @Transactional
+    override fun assignTask(taskID: Long, userid: Long?): Boolean {
+        val taskOptional = eventCalendarRepository.findById(taskID!!)
+        val userOptional = userRepository.findById(userid!!)
+        if(!taskOptional.isPresent || !userOptional.isPresent)
+            throw ResponseStatusException(HttpStatus.NOT_FOUND,"invalid taskId or userId")
+        val task = taskOptional.get()
+        val user = userOptional.get()
+        if(user.assignedTasks.contains(task))
+            throw ResponseStatusException(HttpStatus.CONFLICT,"user has this task")
+        user.assignedTasks.add(task)
+        return true
+    }
+
     override fun deleteTask(id: Long): Boolean {
         val taskOptional = eventCalendarRepository.findById(id)
         if (!taskOptional.isPresent) {
@@ -160,5 +181,13 @@ class EventCalendarService(calendarRepository: EventCalendarRepository) : IntEve
     override fun clearDoneTasks(): Boolean {
         eventCalendarRepository.deleteTaskByStateEquals(TaskState.DONE)
         return true
+    }
+
+    override fun getTasksByUserId(id: Long?): List<Task> {
+        val userOptional = userRepository.findById(id!!)
+        if (!userOptional.isPresent) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "no user with id $id ")
+        }
+        return eventCalendarRepository.findTasksByMembersId(id).get()
     }
 }

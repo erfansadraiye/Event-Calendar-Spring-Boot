@@ -1,5 +1,6 @@
-package com.example.eventcalendar.user
+package com.example.eventcalendar.service
 
+import com.example.eventcalendar.model.User
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.*
 
@@ -14,6 +15,10 @@ interface IntUserService {
 
     @GetMapping("email/{email}")
     fun getUserByEmail(@PathVariable("email") email: String): User
+
+
+    @GetMapping("get_users_by_task/task_id/{id}")
+    fun getUsersByTaskId(@PathVariable("id") taskId: Long?): List<User>
 
     @PostMapping("create", consumes = ["application/json"])
     @ResponseStatus(HttpStatus.CREATED)

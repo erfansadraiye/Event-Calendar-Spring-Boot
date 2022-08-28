@@ -1,6 +1,6 @@
-package com.example.eventcalendar.calendar
+package com.example.eventcalendar.model
 
-import com.example.eventcalendar.user.User
+import com.fasterxml.jackson.annotation.JsonBackReference
 import java.time.LocalDate
 import javax.persistence.*
 
@@ -25,8 +25,11 @@ class Task(
 
     @Enumerated(value = EnumType.STRING)
     var state: TaskState? = TaskState.TO_DO
+
     @ManyToMany(mappedBy = "assignedTasks")
-    var members : Set<User> = setOf()
+    @JsonBackReference
+    var members : MutableList<User> = mutableListOf()
+
     constructor(title: String, description: String, deadline: LocalDate) :
             this(null, title, description, deadline) {
 

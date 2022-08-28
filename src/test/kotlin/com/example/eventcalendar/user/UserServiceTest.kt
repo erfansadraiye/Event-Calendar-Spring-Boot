@@ -1,12 +1,12 @@
 package com.example.eventcalendar.user
 
 import com.example.eventcalendar.CalendarTest
-import com.example.eventcalendar.calendar.Task
-import com.example.eventcalendar.calendar.TaskState
+import com.example.eventcalendar.model.Task
+import com.example.eventcalendar.model.User
+import com.example.eventcalendar.repository.EventCalendarRepository
+import com.example.eventcalendar.repository.UserRepository
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import org.json.JSONArray
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -27,6 +27,9 @@ internal class UserServiceTest : CalendarTest {
     lateinit var userRepository: UserRepository
 
     @Autowired
+    lateinit var eventCalendarRepository: EventCalendarRepository
+
+    @Autowired
     lateinit var webApplicationContext: WebApplicationContext
 
     @Autowired
@@ -41,6 +44,13 @@ internal class UserServiceTest : CalendarTest {
     final val DANIAL_LAST_NAME: String = "jahanbani"
     final val DANIAL_EMAIL: String = "danial@gmail.com"
 
+    final val TITLE_LOR: String = "LOR"
+    final val DESCRIPTION_LOR: String = "watch $TITLE_LOR"
+    final val DEADLINE_LOR: String = "2022-12-09"
+    final val TITLE_GOT: String = "GOT"
+    final val DESCRIPTION_GOT: String = "watch $TITLE_GOT"
+    final val DEADLINE_GOT: String = "2023-01-13"
+
     final val pathUsers = "http://localhost:8080/api/calendar/users/"
 
     @BeforeEach
@@ -51,6 +61,7 @@ internal class UserServiceTest : CalendarTest {
     @BeforeEach
     override fun resetDB() {
         userRepository.deleteAll()
+        eventCalendarRepository.deleteAll()
     }
 
     @Test
@@ -63,10 +74,10 @@ internal class UserServiceTest : CalendarTest {
         val actual_tasks = mockMvc.perform(
             MockMvcRequestBuilders.get("${pathUsers}list")
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
-        val actual_list = JSONArray(actual_tasks)
-        assertEquals(actual_list.length(), 2)
-        val actualErfanObject = mapper.readValue<User>(actual_list.getString(0))
-        val actualDanialObject = mapper.readValue<User>(actual_list.getString(1))
+        val actual_list = mapper.readValue<List<User>>(actual_tasks)
+        assertEquals(actual_list.size, 2)
+        val actualErfanObject = actual_list[0]
+        val actualDanialObject = actual_list[1]
         assertEquals(erfan, actualErfanObject)
         assertEquals(danial, actualDanialObject)
     }
@@ -142,7 +153,7 @@ internal class UserServiceTest : CalendarTest {
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         val actualObject = mapper.readValue<User>(actual)
         val expected = userRepository.findById(erfan.id!!).get()
-        assertEquals(actualObject,expected)
+        assertEquals(actualObject, expected)
         assertEquals(actualObject.email, newEmail)
     }
 
@@ -150,7 +161,7 @@ internal class UserServiceTest : CalendarTest {
     fun updateNameById() {
         val erfan = User(ERFAN_FIRST_NAME, ERFAN_LAST_NAME, ERFAN_EMAIL)
         val danial = User(DANIAL_FIRST_NAME, DANIAL_LAST_NAME, DANIAL_EMAIL)
-        userRepository.saveAll(listOf(erfan,danial))
+        userRepository.saveAll(listOf(erfan, danial))
         val newFirstname = "erf"
         val newLastname = "sad"
         mockMvc.perform(
@@ -167,26 +178,26 @@ internal class UserServiceTest : CalendarTest {
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
         var actualObject = mapper.readValue<User>(actual)
         var expected = userRepository.findById(erfan.id!!).get()
-        assertEquals(actualObject,expected)
+        assertEquals(actualObject, expected)
         assertEquals(actualObject.firstName, newFirstname)
 
         actual = mockMvc.perform(
             MockMvcRequestBuilders.put("${pathUsers}change_name/${erfan.id}?lastname=$newLastname")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
-        actualObject = mapper.readValue<User>(actual)
+        actualObject = mapper.readValue(actual)
         expected = userRepository.findById(erfan.id!!).get()
-        assertEquals(actualObject,expected)
+        assertEquals(actualObject, expected)
         assertEquals(actualObject.lastName, newLastname)
 
         actual = mockMvc.perform(
             MockMvcRequestBuilders.put("${pathUsers}change_name/${erfan.id}?firstname=${ERFAN_FIRST_NAME}&lastname=${ERFAN_LAST_NAME}")
                 .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
-        actualObject = mapper.readValue<User>(actual)
+        actualObject = mapper.readValue(actual)
         expected = userRepository.findById(erfan.id!!).get()
-        assertEquals(actualObject,expected)
-        assertEquals(actualObject.firstName,ERFAN_FIRST_NAME)
+        assertEquals(actualObject, expected)
+        assertEquals(actualObject.firstName, ERFAN_FIRST_NAME)
         assertEquals(actualObject.lastName, ERFAN_LAST_NAME)
     }
 
@@ -197,12 +208,38 @@ internal class UserServiceTest : CalendarTest {
         mockMvc.perform(
             MockMvcRequestBuilders.delete("${pathUsers}remove_user/${erfan.id!! + 1000}")
         ).andExpect(MockMvcResultMatchers.status().isNotFound)
-
+        println("${pathUsers}remove_user/${(erfan.id)}")
         mockMvc.perform(
             MockMvcRequestBuilders.delete("${pathUsers}remove_user/${(erfan.id)}")
         ).andExpect(MockMvcResultMatchers.status().isOk)
         assertFalse(userRepository.existsById(erfan.id!!))
         assertEquals(userRepository.count(), 0)
+    }
+
+    @Test
+    fun getUsersByTaskId() {
+        val erfan = User(ERFAN_FIRST_NAME, ERFAN_LAST_NAME, ERFAN_EMAIL)
+        val danial = User(DANIAL_FIRST_NAME, DANIAL_LAST_NAME, DANIAL_EMAIL)
+        val lor = Task(TITLE_LOR, DESCRIPTION_LOR, LocalDate.parse(DEADLINE_LOR))
+        val got = Task(TITLE_GOT, DESCRIPTION_GOT, LocalDate.parse(DEADLINE_GOT))
+        erfan.assignedTasks.addAll(listOf(lor, got))
+        danial.assignedTasks.add(lor)
+        eventCalendarRepository.saveAll(listOf(lor, got))
+        userRepository.saveAll(listOf(erfan, danial))
+        mockMvc.perform(
+            MockMvcRequestBuilders.get("${pathUsers}get_users_by_task/task_id/${lor.id!! + 1000}")
+        ).andExpect(MockMvcResultMatchers.status().isNotFound)
+
+        val actualUsers = mockMvc.perform(
+            MockMvcRequestBuilders.get("${pathUsers}get_users_by_task/task_id/${lor.id}")
+        ).andExpect(MockMvcResultMatchers.status().isOk).andReturn().response.contentAsString
+
+        val actualList = mapper.readValue<List<User>>(actualUsers)
+        assertEquals(actualList.size, 2)
+        val actualErfanObject = actualList[0]
+        val actualDanialObject = actualList[1]
+        assertEquals(erfan, actualErfanObject)
+        assertEquals(danial, actualDanialObject)
     }
 
     final fun toJsonUser(firstName: String?, lastName: String?, email: String?): String {

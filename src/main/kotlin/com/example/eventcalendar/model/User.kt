@@ -1,10 +1,12 @@
-package com.example.eventcalendar.user
+package com.example.eventcalendar.model
 
-import com.example.eventcalendar.calendar.Task
+import com.fasterxml.jackson.annotation.JsonBackReference
 import javax.persistence.*
 
 @Entity
 @Table(name = "users")
+//@JsonIdentityInfo(property = "id", generator = ObjectIdGenerators.PropertyGenerator::class)
+
 class User(
     id: Long?, firstName: String?, lastName: String?, email: String?
 ) {
@@ -19,14 +21,14 @@ class User(
 
     @Column(unique = true)
     var email: String? = email
-
-    @ManyToMany(targetEntity = Task::class)
+    @ManyToMany(targetEntity = Task::class, fetch = FetchType.LAZY)
     @JoinTable(
         name = "users_tasks",
         joinColumns = [JoinColumn(name = "user_id")],
         inverseJoinColumns = [JoinColumn(name = "task_id")]
     )
-    var assignedTasks: List<Task>? = null
+    @JsonBackReference
+    var assignedTasks : MutableList<Task> = mutableListOf()
 
     constructor() : this(null, null, null, null) {
 

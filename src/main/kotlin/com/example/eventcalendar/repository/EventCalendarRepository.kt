@@ -1,5 +1,7 @@
-package com.example.eventcalendar.calendar
+package com.example.eventcalendar.repository
 
+import com.example.eventcalendar.model.Task
+import com.example.eventcalendar.model.TaskState
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
 import java.time.LocalDate
@@ -19,4 +21,7 @@ interface EventCalendarRepository : JpaRepository<Task, Long?> {
     fun deleteTaskByStateEquals(state: TaskState): Unit
 
     fun existsByTitle(title: String) : Boolean
+
+    fun findTasksByMembersId(userId : Long) : Optional<List<Task>>
+
 }
